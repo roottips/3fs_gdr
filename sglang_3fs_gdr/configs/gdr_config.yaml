@@ -1,0 +1,63 @@
+# SGLang + 3FS + GDR 配置文件
+# 路径: configs/gdr_config.yaml
+
+# ============================================================
+# GDR 核心配置
+# ============================================================
+enable_gdr: true
+gpu_id: 0
+ib_dev: mlx5_0
+pool_size_gb: 4
+
+# ============================================================
+# 3FS 配置
+# ============================================================
+cluster_id: stage
+mountpoint: /3fs/stage
+mgmtd_address: RDMA://192.168.1.1:8000
+token_file: /opt/3fs/etc/token.txt
+
+# USRBIO GDR 配置
+iov_path: /3fs/stage/.iov_gpu
+ior_path: /3fs/stage/.ior_gpu
+io_depth: 64
+batch_size: 16
+
+# FUSE 挂载选项
+fuse_mount_options: rdma_port=1,rdma_timeout=30000
+
+# ============================================================
+# HiCache 配置
+# ============================================================
+hicache_storage_prefix: /3fs/stage/kvcache
+hicache_io_backend: gdr           # gdr | gdr_async | direct
+hicache_write_policy: write_through
+hicache_prefetch_depth: 4
+
+# ============================================================
+# 通信层配置
+# ============================================================
+comm_enable_gdr_relay: true
+comm_cq_depth: 256
+comm_qp_depth: 128
+
+# ============================================================
+# SGLang 服务配置
+# ============================================================
+sglang_model_path: /3fs/stage/models/DeepSeek-R1
+sglang_tp: 8
+sglang_host: 0.0.0.0
+sglang_port: 10000
+
+# ============================================================
+# 性能调优
+# ============================================================
+enable_relaxed_ordering: true
+enable_batch: true
+poll_interval_us: 1
+
+# ============================================================
+# 日志
+# ============================================================
+log_level: INFO
+log_file: /var/log/sglang_gdr.log

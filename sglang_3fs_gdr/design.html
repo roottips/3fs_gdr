@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGLang + 3FS + GDR 模块设计与代码适配方案</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            line-height: 1.7;
+            font-size: 15px;
+        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+        h1 {
+            font-size: 28px;
+            text-align: center;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #58a6ff, #bc8cff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { text-align: center; color: #8b949e; margin-bottom: 48px; font-size: 14px; }
+
+        h2 {
+            font-size: 22px;
+            color: #58a6ff;
+            margin: 48px 0 20px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #30363d;
+        }
+        h3 { font-size: 17px; color: #bc8cff; margin: 24px 0 12px; }
+        h4 { font-size: 15px; color: #7ee787; margin: 16px 0 8px; }
+
+        p { margin-bottom: 12px; color: #c9d1d9; }
+
+        ul { margin: 8px 0 16px 24px; }
+        li { margin-bottom: 4px; }
+
+        code {
+            background: #161b22;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            color: #f0883e;
+        }
+        pre {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            margin: 12px 0;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+            color: #e6edf3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #30363d;
+            padding: 10px 14px;
+            text-align: left;
+        }
+        th { background: #21262d; color: #58a6ff; }
+        tr:nth-child(even) { background: #161b22; }
+
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 16px 0;
+        }
+
+        .arch-diagram {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre;
+            color: #8b949e;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 0 4px;
+        }
+        .badge-blue { background: #1f6feb33; color: #58a6ff; border: 1px solid #1f6feb66; }
+        .badge-green { background: #23863633; color: #7ee787; border: 1px solid #23863666; }
+        .badge-purple { background: #8957e533; color: #bc8cff; border: 1px solid #8957e566; }
+        .badge-orange { background: #d2992233; color: #e3b341; border: 1px solid #d2992266; }
+
+        .highlight-box {
+            background: #1c2128;
+            border-left: 3px solid #f85149;
+            padding: 12px 16px;
+            margin: 16px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .highlight-box.green { border-left-color: #7ee787; }
+        .highlight-box.blue { border-left-color: #58a6ff; }
+
+        .file-tree {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+            color: #8b949e;
+        }
+        .file-tree .dir { color: #58a6ff; }
+        .file-tree .file { color: #c9d1d9; }
+        .file-tree .desc { color: #8b949e; font-style: italic; }
+
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            margin: 8px 0;
+        }
+        .flow-step .num {
+            background: #238636;
+            color: #fff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: bold;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .flow-step .content { padding-top: 2px; }
+
+        .perf-table td:nth-child(2),
+        .perf-table td:nth-child(3) { color: #7ee787; }
+        .perf-table td:nth-child(4) { color: #e3b341; }
+
+        .toc {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 20px 28px;
+            margin-bottom: 32px;
+        }
+        .toc a { color: #58a6ff; text-decoration: none; }
+        .toc a:hover { text-decoration: underline; }
+        .toc ol { margin-left: 20px; }
+        .toc li { margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+<h1>SGLang + 3FS + GPUDirect RDMA (GDR) 模块设计与代码适配方案</h1>
+<p class="subtitle">基于 SGLang 推理框架 + DeepSeek 3FS 分布式文件系统 + NVIDIA GPUDirect RDMA 的零拷贝 GPU 存储传输架构</p>
+
+<div class="toc">
+<strong>目录</strong>
+<ol>
+    <li><a href="#overview">概述与背景</a></li>
+    <li><a href="#architecture">系统架构设计</a></li>
+    <li><a href="#modules">模块详细设计</a></li>
+    <li><a href="#dataflow">数据流设计</a></li>
+    <li><a href="#code">代码结构与实现</a></li>
+    <li><a href="#integration">SGLang 集成方案</a></li>
+    <li><a href="#deploy">部署与配置</a></li>
+    <li><a href="#perf">性能分析</a></li>
+</ol>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="overview">1. 概述与背景</h2>
+
+<h3>1.1 问题定义</h3>
+<p>SGLang 推理框架通过 3FS 分布式文件系统进行 KV Cache 的存储和加载。当前数据传输路径存在<strong>额外的 CPU 内存拷贝</strong>：</p>
+
+<div class="arch-diagram">现有路径 (3FS USRBIO):
+  GPU 显存 ──cudaMemcpy──▶ CPU 共享内存 (Iov) ──RDMA──▶ 3FS 存储节点 SSD
+                              ▲
+                    额外的 PCIe DMA 拷贝
+
+GDR 优化路径:
+  GPU 显存 ───────────RDMA (GPUDirect)─────────▶ 3FS 存储节点 SSD
+              ▲
+     零拷贝: 跳过 CPU 内存</div>
+
+<h3>1.2 GPUDirect RDMA (GDR) 简介</h3>
+<p>GPUDirect RDMA 是 NVIDIA 的技术，允许 RDMA NIC 直接访问 GPU 设备内存，无需经过主机 CPU 内存中转。通过 <code>nvidia-peermem</code> 内核模块，IB/RoCE NIC 可以直接对 GPU 显存执行 DMA 传输。</p>
+
+<table>
+<tr><th>特性</th><th>传统 RDMA (CPU 内存)</th><th>GPUDirect RDMA (GPU 显存)</th></tr>
+<tr><td>数据路径</td><td>GPU → CPU → NIC → 网络</td><td>GPU → NIC → 网络</td></tr>
+<tr><td>拷贝次数</td><td>2 次 (GPU↔CPU + CPU↔NIC)</td><td>0 次 (直接 DMA)</td></tr>
+<tr><td>延迟</td><td>~10-50 μs (依赖 PCIe)</td><td>~2-5 μs</td></tr>
+<tr><td>CPU 开销</td><td>高 (需要 memcpy)</td><td>零 (不经过 CPU)</td></tr>
+<tr><td>依赖</td><td>标准 RDMA</td><td>nvidia-peermem + MOFED</td></tr>
+</table>
+
+<h3>1.3 3FS 现有 RDMA 架构</h3>
+<p>3FS (Fire-Flyer File System) 是 DeepSeek 开源的高性能分布式文件系统，采用 <strong>RDMA-First</strong> 架构：</p>
+<ul>
+    <li>使用 C++ <code>ibverbs</code> 封装 (<code>IBSocket</code>) 实现 One-sided RDMA</li>
+    <li>存储节点通过 RDMA Write 将数据写入客户端内存</li>
+    <li>USRBIO API：基于共享内存的零拷贝 I/O 接口</li>
+    <li>当前缓冲区为 <strong>CPU 共享内存 (Iov)</strong>，尚未支持 GPU 显存</li>
+</ul>
+
+<div class="highlight-box blue">
+<strong>核心思路：</strong> 扩展 3FS 的 USRBIO Iov 机制，将缓冲区从 CPU 共享内存替换为 GPU 设备内存，通过 GDR 实现 GPU↔3FS 的零拷贝传输。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="architecture">2. 系统架构设计</h2>
+
+<h3>2.1 整体架构</h3>
+<div class="arch-diagram">┌────────────────────────────────────────────────────────────────────────────┐
+│                           SGLang 推理引擎                                    │
+│                                                                              │
+│  ┌──────────────┐   ┌──────────────────┐   ┌──────────────────┐              │
+│  │  Scheduler   │   │  Model Runner     │   │  KV Cache Mgr    │              │
+│  │  (调度器)     │   │  (模型执行)       │   │  (GPU VRAM L1)   │              │
+│  └──────┬───────┘   └──────────────────┘   └────────┬─────────┘              │
+│         │                                             │                        │
+│  ┌──────▼─────────────────────────────────────────────▼──────────┐           │
+│  │              SGLang HiCache 系统                                │           │
+│  │  ┌─────────────┐  ┌──────────────┐  ┌────────────────────┐   │           │
+│  │  │ L2: CPU DRAM│  │ I/O Backend  │  │ L3: Storage Backend │   │           │
+│  │  │ (主机缓存)   │  │ (GDRIOBackend)│  │ (GDRStorageBackend) │   │           │
+│  │  └─────────────┘  └──────────────┘  └─────────┬──────────┘   │           │
+│  └────────────────────────────────────────────────┼──────────────┘           │
+│                                                   │                          │
+│  ┌─────────────────────────────────────────────────▼──────────┐              │
+│  │           sglang_3fs_gdr 适配层 (本方案)                     │              │
+│  │                                                             │              │
+│  │  ┌─────────────────────┐  ┌──────────────────────────────┐ │              │
+│  │  │ hf3fs_bridge        │  │ comm (通信层适配)              │ │              │
+│  │  │  ├─ HF3FSGDRClient  │  │  ├─ GDRRelayBackend           │ │              │
+│  │  │  └─ UsrbioGDRExtension│ │  ├─ GDRTransport             │ │              │
+│  │  └─────────────────────┘  │  ├─ GDRDataRef                │ │              │
+│  │                           │  └─ GDRTransportRouter        │ │              │
+│  │  ┌─────────────────────┐  └──────────────────────────────┘ │              │
+│  │  │ gdr_core (核心层)   │                                    │              │
+│  │  │  ├─ GDRDetector     │  ┌──────────────────────────────┐ │              │
+│  │  │  ├─ GPUMemoryManager │  │ utils (工具层)               │ │              │
+│  │  │  └─ RDMAOps         │  │  ├─ GDRConfig                 │ │              │
+│  │  └─────────────────────┘  │  └─ GDRBenchmark              │ │              │
+│  └─────────────────────────────────────────────────────────────┘              │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │
+                                        │ RDMA (GPUDirect)
+                                        ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                        3FS 存储集群                                          │
+│                                                                              │
+│  ┌─────────────┐    ┌──────────────┐    ┌──────────────────────┐           │
+│  │ Mgmtd       │    │ Meta Service │    │ Storage Service      │           │
+│  │ (集群管理)   │    │ (FoundationDB)│   │ ├─ CRAQ Replication  │           │
+│  │             │    │              │    │ ├─ Chunk Engine (Rust)│           │
+│  │ RDMA://     │    │              │    │ └─ RDMA Engine       │           │
+│  └─────────────┘    └──────────────┘    └──────────────────────┘           │
+│                                                          │                  │
+│                                                   ┌──────▼──────┐           │
+│                                                   │  SSD Array  │           │
+│                                                   │ (NVMe/SSD)  │           │
+│                                                   └─────────────┘           │
+└────────────────────────────────────────────────────────────────────────────┘</div>
+
+<h3>2.2 分层设计</h3>
+<table>
+<tr><th>层级</th><th>模块</th><th>职责</th><th>技术栈</th></tr>
+<tr><td><strong>L0: GDR 核心</strong></td><td><code>gdr_core</code></td><td>GDR 检测、GPU 内存管理、RDMA verbs 操作</td><td>ctypes + libibverbs + CUDA Driver</td></tr>
+<tr><td><strong>L1: 3FS 桥接</strong></td><td><code>hf3fs_bridge</code></td><td>3FS USRBIO 扩展、3FS GDR 客户端</td><td>Python + 3FS USRBIO API</td></tr>
+<tr><td><strong>L2: HiCache 后端</strong></td><td><code>hicache</code></td><td>SGLang HiCache 存储/I/O 后端适配</td><td>SGLang HiCache 接口</td></tr>
+<tr><td><strong>L3: 通信层</strong></td><td><code>comm</code></td><td>SGLang 跨节点 GDR Relay、Router 扩展</td><td>SGLang omni relay 接口</td></tr>
+<tr><td><strong>L4: 工具/配置</strong></td><td><code>utils</code></td><td>配置管理、基准测试</td><td>YAML + argparse</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="modules">3. 模块详细设计</h2>
+
+<h3>3.1 GDR 核心层 <span class="badge badge-blue">gdr_core</span></h3>
+
+<h4>3.1.1 GDRDetector — GDR 能力检测</h4>
+<div class="card">
+<p>负责检测系统是否满足 GPUDirect RDMA 运行条件：</p>
+<ul>
+    <li><code>nvidia-peermem</code> 内核模块加载状态 (通过 <code>/proc/modules</code>)</li>
+    <li>NVIDIA GPU 设备与 RDMA NIC 的 P2P 可达性 (<code>nvidia-smi topo -m</code>)</li>
+    <li>IB 端口状态 (<code>/sys/class/infiniband/</code>)</li>
+    <li>CUDA GDR 属性 (<code>CU_DEVICE_ATTRIBUTE_GPU_DIRECT_RDMA_SUPPORTED = 106</code>)</li>
+</ul>
+<pre><code># 检测流程
+detector = GDRDetector()
+report = detector.detect()
+# report = {
+#     "gdr_available": True/False,
+#     "cuda_version": "12.4",
+#     "driver_version": "550.54.14",
+#     "peermem_loaded": True,
+#     "ib_devices": ["mlx5_0", "mlx5_1"],
+#     "gpu_nic_pairs": [GDRDeviceInfo(...)],
+#     "warnings": [],
+# }</code></pre>
+</div>
+
+<h4>3.1.2 GPUMemoryManager — GPU 内存与 RDMA 注册</h4>
+<div class="card">
+<p>管理可用于 GDR 的 GPU 设备内存分配和 RDMA 注册：</p>
+<pre><code># 核心流程
+1. cuMemAlloc_v2()    → 分配 GPU 设备内存
+2. cuMemGetAddressRange() → 获取 GPU 物理地址
+3. ibv_reg_mr()       → 注册 GPU 内存到 RDMA Protection Domain
+4. 返回 GDRBuffer {gpu_ptr, gpu_addr, mr_lkey, mr_rkey}
+
+# 内存池管理
+mgr = GPUMemoryManager(gpu_id=0, ib_dev="mlx5_0", pool_size_gb=4)
+buf = mgr.alloc_buffer(1024 * 1024 * 1024)  # 1GB from pool</code></pre>
+<p><strong>关键 MR 访问标志</strong>：</p>
+<ul>
+    <li><code>IBV_ACCESS_LOCAL_WRITE</code> — 本地写入</li>
+    <li><code>IBV_ACCESS_REMOTE_READ</code> — 远程 RDMA Read</li>
+    <li><code>IBV_ACCESS_REMOTE_WRITE</code> — 远程 RDMA Write</li>
+    <li><code>IBV_ACCESS_RELAXED_ORDERING</code> — 宽松排序 (提升性能)</li>
+</ul>
+</div>
+
+<h4>3.1.3 RDMAOps / RDMATransport — RDMA 操作</h4>
+<div class="card">
+<p>封装基于 GPU 内存的 RDMA verbs 操作：</p>
+<ul>
+    <li><code>rdma_write()</code> — RDMA Write (one-sided)：本地 GPU → 远端内存</li>
+    <li><code>rdma_read()</code> — RDMA Read (one-sided)：远端内存 → 本地 GPU</li>
+    <li><code>post_recv()</code> — 投递接收请求 (two-sided)</li>
+    <li><code>batch_write()</code> — 批量 RDMA Write (一次 post 多个 WR)</li>
+    <li><code>poll_completion()</code> — 轮询 CQ 获取完成事件</li>
+</ul>
+<pre><code># RDMA Write with GPU memory
+result = transport.rdma_write(
+    local_buf=gdr_buf,       # GPU 显存缓冲区
+    remote_addr=0x7f000000,  # 远端 GPU 内存地址
+    rkey=0x1234,             # 远端 MR 的 rkey
+    length=4096,
+)
+# 全程不经过 CPU 主机内存</code></pre>
+</div>
+
+<h3>3.2 3FS GDR 桥接层 <span class="badge badge-green">hf3fs_bridge</span></h3>
+
+<h4>3.2.1 UsrbioGDRExtension — USRBIO GDR 扩展</h4>
+<div class="card">
+<p>扩展 3FS 的 USRBIO API，增加 GPU 显存作为 Iov 缓冲区：</p>
+<table>
+<tr><th>组件</th><th>原始 3FS</th><th>GDR 扩展</th></tr>
+<tr><td>Iov (数据缓冲区)</td><td>CPU 共享内存 (mmap)</td><td>GPU 设备内存 (cuMemAlloc + ibv_reg_mr)</td></tr>
+<tr><td>Ior (控制环形)</td><td>CPU 共享内存</td><td>不变 (控制面数据量极小)</td></tr>
+<tr><td>RDMA 传输</td><td>NIC ↔ CPU 内存</td><td>NIC ↔ GPU 显存 (GDR)</td></tr>
+</table>
+<pre><code># Iov 头部结构 (4096 bytes)
+[0:8]   magic          = 0x4846334653000000
+[8:16]  version         = 2 (GDR version)
+[16:24] capacity        = pool_size
+[24:32] gpu_ptr          = GPU 虚拟地址
+[32:40] gpu_phys_addr    = GPU 物理地址
+[40:44] lkey             = RDMA Local Key
+[44:48] rkey             = RDMA Remote Key
+[48:56] mr_handle        = ibv_mr 句柄
+[56:64] ib_dev_name      = "mlx5_0"
+
+# 3FS USRBIO daemon 读取头部获取 GPU MR 信息
+# 然后执行 RDMA Write 到 GPU 显存</code></pre>
+<p>3FS 存储节点的 USRBIO daemon 读取 Iov 头部后，获取 GPU 内存的 <code>rkey</code> 和 <code>gpu_addr</code>，然后执行 <code>ibv_post_send(IBV_WR_RDMA_WRITE)</code> 将 SSD 数据直接写入 GPU 显存。</p>
+</div>
+
+<h4>3.2.2 HF3FSGDRClient — 3FS GDR 高层客户端</h4>
+<div class="card">
+<p>提供 SGLang 使用的 3FS 高层接口：</p>
+<ul>
+    <li><code>read_to_gpu()</code> — 从 3FS 读取数据直接到 GPU 显存 (GDR 优先, FUSE 回退)</li>
+    <li><code>write_from_gpu()</code> — 从 GPU 显存写入 3FS</li>
+    <li><code>load_kv_cache()</code> — 异步加载 KV Cache 到 GPU tensor</li>
+    <li><code>store_kv_cache()</code> — 异步存储 KV Cache 到 3FS</li>
+    <li><code>load_model_weights()</code> — 通过 GDR 加载模型权重</li>
+</ul>
+<p><strong>回退机制</strong>：当 GDR 不可用时自动回退到 FUSE 路径 (CPU 中转)。</p>
+</div>
+
+<h3>3.3 HiCache GDR 后端 <span class="badge badge-purple">hicache</span></h3>
+
+<h4>3.3.1 GDRStorageBackend — HiCache 存储后端</h4>
+<div class="card">
+<p>实现 SGLang HiCache 的 StorageBackend 接口：</p>
+<pre><code># SGLang HiCache 三级缓存架构
+L1: GPU VRAM (热数据)     ← 直接 GPU 计算
+L2: Host DRAM (温数据)    ← CUDA memcpy
+L3: GDRStorageBackend     ← RDMA 零拷贝 (本方案)
+    └─ 3FS distributed storage
+
+# 接口实现
+def get(key) → Optional[bytes]           # 从 3FS 读取
+async def get_to_gpu(key, tensor) → bool  # GDR 零拷贝读取到 GPU
+def set(key, value) → bool               # 写入 3FS
+async def set_from_gpu(key, tensor) → bool # GDR 零拷贝写入
+def exists(key) → bool
+def prefetch(key)                          # 异步预取</code></pre>
+</div>
+
+<h4>3.3.2 GDRIOBackend — HiCache I/O 后端</h4>
+<div class="card">
+<p>管理 GDR 传输的 I/O 调度策略：</p>
+<ul>
+    <li><strong>同步 GDR</strong> (<code>gdr</code>)：提交后立即等待完成</li>
+    <li><strong>异步批量 GDR</strong> (<code>gdr_async</code>)：批量提交多个请求，一次轮询</li>
+    <li>I/O 深度控制：限制并发 GDR 传输数量</li>
+    <li>批量提交：聚合请求减少协议开销</li>
+    <li>预取支持：提前通过 GDR 预取下一段数据</li>
+</ul>
+</div>
+
+<h3>3.4 通信层 GDR 适配 <span class="badge badge-orange">comm</span></h3>
+
+<h4>3.4.1 GDRRelayBackend — SGLang Relay 后端</h4>
+<div class="card">
+<p>实现 SGLang 的 relay 后端接口，用于跨阶段 GPU 数据传输：</p>
+<pre><code># SGLang omni relay 后端对比
+MooncakeRelay:  GPU → Mooncake → CPU → RDMA → CPU → GPU
+GDRRelayBackend: GPU → RDMA → GPU (完全绕过 CPU)
+
+# 接口实现
+async def put_async(data_ref) → bool       # 发送 GPU 数据
+async def get_async(data_ref) → GDRBuffer  # 接收 GPU 数据
+async def batch_get(data_refs) → list      # 批量接收</code></pre>
+</div>
+
+<h4>3.4.2 GDRTransportRouter — 传输路由扩展</h4>
+<div class="card">
+<p>在 SGLang 的传输路由逻辑中增加 GDR 选项：</p>
+<pre><code># 传输选择逻辑
+if same_node:
+    transport = CUDA_IPC (GPU) or SHM (CPU)
+else:  # 跨节点
+    if gdr_available and cuda_tensor:
+        transport = GDR           ← 优先 GDR
+    elif gdr_available and via_3fs:
+        transport = GDR_3FS        ← 通过 3FS 中转
+    else:
+        transport = MOONCAKE       ← 回退 Mooncake</code></pre>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="dataflow">4. 数据流设计</h2>
+
+<h3>4.1 KV Cache 加载流 (GDR 路径)</h3>
+<div class="card">
+<div class="flow-step"><div class="num">1</div><div class="content">SGLang 调度器检测 KV Cache miss，调用 <code>GDRStorageBackend.get_to_gpu()</code></div></div>
+<div class="flow-step"><div class="num">2</div><div class="content"><code>HF3FSGDRClient</code> 分配 GPU 缓冲区 (<code>GPUMemoryManager.alloc_buffer()</code>)</div></div>
+<div class="flow-step"><div class="num">3</div><div class="content"><code>UsrbioGDRExtension</code> 提交 GDR 读请求到 Ior 环形缓冲区</div></div>
+<div class="flow-step"><div class="num">4</div><div class="content">3FS USRBIO daemon 读取 Iov 头部，获取 GPU MR 信息 (rkey + gpu_addr)</div></div>
+<div class="flow-step"><div class="num">5</div><div class="content">3FS 存储节点从 SSD 读取数据，执行 <code>ibv_post_send(IBV_WR_RDMA_WRITE)</code> 到 GPU 显存</div></div>
+<div class="flow-step"><div class="num">6</div><div class="content">NIC 通过 GDR 直接 DMA 到 GPU 显存 (nvidia-peermem 模块处理地址映射)</div></div>
+<div class="flow-step"><div class="num">7</div><div class="content"><code>UsrbioGDRExtension.wait_completion()</code> 轮询 Ior 完成区获取状态</div></div>
+<div class="flow-step"><div class="num">8</div><div class="content">SGLang 调度器从 GPU 显存直接使用 KV Cache (零拷贝)</div></div>
+</div>
+
+<h3>4.2 KV Cache 存储流 (GDR 路径)</h3>
+<div class="card">
+<div class="flow-step"><div class="num">1</div><div class="content">SGLang HiCache L2 淘汰，调用 <code>GDRStorageBackend.set_from_gpu()</code></div></div>
+<div class="flow-step"><div class="num">2</div><div class="content"><code>HF3FSGDRClient.store_kv_cache()</code> 提交 GDR 写请求</div></div>
+<div class="flow-step"><div class="num">3</div><div class="content">3FS 存储节点执行 <code>ibv_post_send(IBV_WR_RDMA_READ)</code> 从 GPU 显存读取数据</div></div>
+<div class="flow-step"><div class="num">4</div><div class="content">3FS 存储节点将数据写入 SSD (chunk_engine)</div></div>
+<div class="flow-step"><div class="num">5</div><div class="content">写入完成通知通过 Ior 回传客户端</div></div>
+</div>
+
+<h3>4.3 跨节点 GPU 数据传输流 (GDR Relay)</h3>
+<div class="card">
+<div class="flow-step"><div class="num">1</div><div class="content">SGLang Pipeline 阶段 A 的 GPU tensor 需要传送到阶段 B (不同节点)</div></div>
+<div class="flow-step"><div class="num">2</div><div class="content"><code>GDRTransportRouter</code> 检测到 GDR 可用，选择 <code>GDRTransportType.GDR</code></div></div>
+<div class="flow-step"><div class="num">3</div><div class="content">阶段 A 的 <code>GDRRelayBackend.put_async()</code> 执行 <code>RDMA Write</code> 到阶段 B 的 GPU</div></div>
+<div class="flow-step"><div class="num">4</div><div class="content">阶段 B 的 <code>GDRRelayBackend.get_async()</code> 接收 GPU tensor</div></div>
+<div class="flow-step"><div class="num">5</div><div class="content">数据直接在 GPU 间传输，不经过 CPU</div></div>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="code">5. 代码结构与实现</h2>
+
+<h3>5.1 目录结构</h3>
+<div class="card">
+<div class="file-tree">
+<span class="dir">sglang_3fs_gdr/</span>
+├── <span class="file">__init__.py</span>                      <span class="desc"># 模块入口</span>
+├── <span class="dir">gdr_core/</span>                         <span class="desc"># L0: GDR 核心层</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">gdr_detector.py</span>              <span class="desc"># GDR 环境检测</span>
+│   ├── <span class="file">gpu_memory_manager.py</span>        <span class="desc"># GPU 内存分配 + RDMA 注册</span>
+│   └── <span class="file">rdma_ops.py</span>                   <span class="desc"># RDMA verbs 操作封装</span>
+├── <span class="dir">hf3fs_bridge/</span>                     <span class="desc"># L1: 3FS GDR 桥接层</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">usrbio_gdr.py</span>                <span class="desc"># USRBIO GDR 扩展 (Iov→GPU)</span>
+│   └── <span class="file">hf3fs_gdr_client.py</span>          <span class="desc"># 3FS GDR 高层客户端</span>
+├── <span class="dir">hicache/</span>                          <span class="desc"># L2: HiCache GDR 后端</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">gdr_storage_backend.py</span>      <span class="desc"># HiCache 存储后端 (get/set)</span>
+│   └── <span class="file">gdr_io_backend.py</span>            <span class="desc"># HiCache I/O 后端 (调度)</span>
+├── <span class="dir">comm/</span>                            <span class="desc"># L3: 通信层 GDR 适配</span>
+│   ├── <span class="file">__init__.py</span>
+│   ├── <span class="file">gdr_data_ref.py</span>              <span class="desc"># GDR DataRef 扩展</span>
+│   └── <span class="file">gdr_transport.py</span>             <span class="desc"># GDR Relay 后端 + Router</span>
+└── <span class="dir">utils/</span>                           <span class="desc"># L4: 工具/配置</span>
+    ├── <span class="file">__init__.py</span>
+    ├── <span class="file">config.py</span>                   <span class="desc"># 配置管理 (YAML/TOML)</span>
+    └── <span class="file">benchmark.py</span>                <span class="desc"># GDR 性能基准测试</span>
+
+<span class="dir">scripts/</span>                             <span class="desc"># 部署脚本</span>
+├── <span class="file">setup_gdr.sh</span>                     <span class="desc"># GDR 环境部署</span>
+├── <span class="file">verify_gdr.py</span>                   <span class="desc"># GDR 环境验证</span>
+└── <span class="file">sglang_gdr_entrypoint.py</span>        <span class="desc"># SGLang 集成入口</span>
+
+<span class="dir">configs/</span>                             <span class="desc"># 配置文件</span>
+└── <span class="file">gdr_config.yaml</span>                 <span class="desc"># 默认配置模板</span>
+</div>
+</div>
+
+<h3>5.2 核心代码片段</h3>
+
+<h4>GPU 内存分配与 RDMA 注册</h4>
+<div class="card">
+<pre><code># gdr_core/gpu_memory_manager.py — 核心函数
+
+def _alloc_and_register(self, size: int) -> Optional[GDRBuffer]:
+    # 1. 分配 GPU 设备内存
+    dptr = ctypes.c_uint64(0)
+    self._lib_cuda.cuMemAlloc_v2(ctypes.byref(dptr), size)
+
+    # 2. 获取 GPU 物理地址 (用于 RDMA 定位)
+    phys_base = ctypes.c_uint64(0)
+    self._lib_cuda.cuMemGetAddressRange(
+        ctypes.byref(phys_base), ..., dptr.value
+    )
+
+    # 3. 注册 RDMA Memory Region (GPU 内存!)
+    mr = self._lib_ibverbs.ibv_reg_mr(
+        self._pd,                           # Protection Domain
+        ctypes.c_void_p(dptr.value),        # GPU 设备内存指针
+        size,                               # 大小
+        IBV_ACCESS_LOCAL_WRITE |            # 本地写
+        IBV_ACCESS_REMOTE_READ |           # 远程读
+        IBV_ACCESS_REMOTE_WRITE |          # 远程写
+        IBV_ACCESS_RELAXED_ORDERING,        # 宽松排序
+    )
+    # nvidia-peermem 模块自动处理 GPU↔NIC 地址映射
+
+    return GDRBuffer(
+        gpu_ptr=dptr.value,
+        gpu_addr=phys_base.value,
+        mr_lkey=mr_lkey,
+        mr_rkey=mr_rkey,
+    )</code></pre>
+</div>
+
+<h4>USRBIO GDR Iov 头部写入</h4>
+<div class="card">
+<pre><code># hf3fs_bridge/usrbio_gdr.py — Iov 头部写入
+
+def _write_iov_header(self):
+    buf = self.mem_mgr._pool[0]  # 第一个 GPU 缓冲区
+
+    header = bytearray(4096)
+    struct.pack_into("Q", header, 0, 0x4846334653000000)  # magic
+    struct.pack_into("Q", header, 8, 2)                    # GDR version
+    struct.pack_into("Q", header, 16, buf.size)            # capacity
+    struct.pack_into("Q", header, 24, buf.gpu_ptr)        # GPU 虚拟地址
+    struct.pack_into("Q", header, 32, buf.gpu_addr)       # GPU 物理地址
+    struct.pack_into("I", header, 40, buf.mr_lkey)        # RDMA lkey
+    struct.pack_into("I", header, 44, buf.mr_rkey)        # RDMA rkey
+    # 3FS daemon 读取此头部后执行 RDMA Write 到 GPU 显存</code></pre>
+</div>
+
+<h4>HiCache GDR 存储后端集成</h4>
+<div class="card">
+<pre><code># hicache/gdr_storage_backend.py — KV Cache 加载
+
+async def get_to_gpu(self, key: str, gpu_tensor) -> bool:
+    file_path = self._key_to_path(key)
+    success = await self.client.load_kv_cache(
+        session_id=key,
+        gpu_tensor=gpu_tensor,
+        kv_path_prefix=self.config.storage_prefix,
+    )
+    # load_kv_cache 内部:
+    #   1. 分配 GPU 缓冲区 (GDRBuffer)
+    #   2. 提交 USRBIO GDR 读请求
+    #   3. 3FS 存储节点 RDMA Write 到 GPU 显存
+    #   4. 等待完成
+    # 全程零拷贝: 3FS SSD → RDMA → GPU 显存</code></pre>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="integration">6. SGLang 集成方案</h2>
+
+<h3>6.1 启动参数</h3>
+<div class="card">
+<pre><code># SGLang 启动命令 (GDR 模式)
+python3 -m sglang.launch_server \
+  --model-path /3fs/stage/models/DeepSeek-R1 \
+  --tp 8 \
+  --host 0.0.0.0 \
+  --port 10000 \
+  --enable-hierarchical-cache \
+  --hicache-ratio 2 \
+  --hicache-mem-layout page_first_direct \
+  --hicache-io-backend gdr \                    <span style="color:#7ee787"># ← GDR I/O 后端</span>
+  --hicache-storage-backend gdr_3fs \            <span style="color:#7ee787"># ← GDR 存储后端</span>
+  --hicache-write-policy write_through \
+  --hicache-storage-prefetch-policy wait_complete</code></pre>
+</div>
+
+<h3>6.2 自动注册机制</h3>
+<div class="card">
+<p>通过环境变量或插件导入自动注册 GDR 后端：</p>
+<pre><code># 方式 1: 环境变量
+export SGLANG_GDR_PLUGIN=1
+export GDR_CONFIG_PATH=/path/to/gdr_config.yaml
+python3 -m sglang.launch_server ...
+
+# 方式 2: Python 导入
+# 在 SGLang 启动脚本中添加:
+import sglang_3fs_gdr  # 自动注册 GDR 后端
+
+# 方式 3: 入口脚本
+python3 scripts/sglang_gdr_entrypoint.py</code></pre>
+</div>
+
+<h3>6.3 兼容性策略</h3>
+<table>
+<tr><th>场景</th><th>行为</th><th>传输路径</th></tr>
+<tr><td>GDR 可用 + 3FS 已挂载</td><td>使用 GDR 零拷贝</td><td>GPU ↔ RDMA ↔ 3FS</td></tr>
+<tr><td>GDR 不可用 + 3FS 已挂载</td><td>回退 FUSE</td><td>GPU ↔ cudaMemcpy ↔ CPU ↔ FUSE ↔ 3FS</td></tr>
+<tr><td>3FS 未挂载</td><td>使用本地文件</td><td>GPU ↔ CPU ↔ Local Disk</td></tr>
+<tr><td>跨节点 (GDR 可用)</td><td>GDR Relay</td><td>GPU ↔ RDMA ↔ GPU</td></tr>
+<tr><td>跨节点 (GDR 不可用)</td><td>Mooncake 回退</td><td>GPU ↔ Mooncake ↔ CPU ↔ RDMA ↔ GPU</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="deploy">7. 部署与配置</h2>
+
+<h3>7.1 环境要求</h3>
+<table>
+<tr><th>组件</th><th>最低版本</th><th>验证命令</th></tr>
+<tr><td>NVIDIA Driver</td><td>≥ 525</td><td><code>nvidia-smi</code></td></tr>
+<tr><td>CUDA Toolkit</td><td>≥ 12.0</td><td><code>nvcc --version</code></td></tr>
+<tr><td>Mellanox OFED</td><td>≥ 5.4</td><td><code>ibv_devinfo</code></td></tr>
+<tr><td>nvidia-peermem</td><td>已加载</td><td><code>lsmod | grep peermem</code></td></tr>
+<tr><td>libibverbs</td><td>≥ 1.3</td><td><code>dpkg -l libibverbs-dev</code></td></tr>
+<tr><td>3FS</td><td>latest</td><td><code>mountpoint /3fs/stage</code></td></tr>
+<tr><td>PyTorch</td><td>≥ 2.0</td><td><code>python3 -c "import torch"</code></td></tr>
+</table>
+
+<h3>7.2 部署步骤</h3>
+<div class="card">
+<pre><code># 1. 配置 GDR 环境
+sudo bash scripts/setup_gdr.sh --gpu 0 --ib mlx5_0
+
+# 2. 验证 GDR
+python3 scripts/verify_gdr.py --gpu 0 --ib mlx5_0
+
+# 3. 挂载 3FS (如未挂载)
+sudo bash scripts/setup_gdr.sh --mount-3fs
+
+# 4. 配置
+cp configs/gdr_config.yaml /etc/sglang/gdr_config.yaml
+# 编辑配置文件，修改 mgmtd_address 等参数
+
+# 5. 启动 SGLang with GDR
+SGLANG_GDR_PLUGIN=1 \
+GDR_CONFIG_PATH=/etc/sglang/gdr_config.yaml \
+python3 -m sglang.launch_server \
+  --model-path /3fs/stage/models/DeepSeek-R1 \
+  --tp 8 --host 0.0.0.0 --port 10000 \
+  --enable-hierarchical-cache \
+  --hicache-io-backend gdr \
+  --hicache-storage-backend gdr_3fs \
+  --hicache-write-policy write_through
+
+# 6. 运行基准测试
+python3 -m sglang_3fs_gdr.utils.benchmark --test all</code></pre>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="perf">8. 性能分析</h2>
+
+<h3>8.1 预期性能提升</h3>
+<table class="perf-table">
+<tr><th>场景</th><th>延迟</th><th>带宽</th><th>CPU 占用</th></tr>
+<tr><td>3FS USRBIO (CPU 内存)</td><td>10-50 μs</td><td>~20 GB/s</td><td>高</td></tr>
+<tr><td>3FS + GDR (GPU 直通)</td><td>2-5 μs</td><td>~40 GB/s</td><td>零</td></tr>
+<tr><td>提升倍数</td><td>5-10x</td><td>2x</td><td>100% 降低</td></tr>
+</table>
+
+<h3>8.2 性能影响因素</h3>
+<table>
+<tr><th>因素</th><th>影响</th><th>优化建议</th></tr>
+<tr><td>PCIe 拓扑</td><td>GPU 与 NIC 同 PCIe Switch 性能最佳</td><td>使用 <code>nvidia-smi topo -m</code> 验证拓扑</td></tr>
+<tr><td>IB 端口速率</td><td>100GbE → ~12GB/s, 200GbE → ~24GB/s</td><td>使用 200GbE/400GbE NIC</td></tr>
+<tr><td>批量大小</td><td>批量提交减少协议开销</td><td><code>batch_size</code> 设为 16-64</td></tr>
+<tr><td>I/O 深度</td><td>并发 GDR 传输数</td><td><code>io_depth</code> 设为 64-256</td></tr>
+<tr><td>内存池大小</td><td>避免运行时分配</td><td><code>pool_size_gb</code> ≥ 2x 最大 KV Cache</td></tr>
+<tr><td>Relaxed Ordering</td><td>允许乱序完成，提升吞吐</td><td>启用 <code>IBV_ACCESS_RELAXED_ORDERING</code></td></tr>
+</table>
+
+<h3>8.3 基准测试</h3>
+<div class="card">
+<pre><code># 延迟测试
+python3 -m sglang_3fs_gdr.utils.benchmark --test latency --iterations 100
+
+# 带宽测试
+python3 -m sglang_3fs_gdr.utils.benchmark --test bandwidth --duration 5
+
+# 批量测试
+python3 -m sglang_3fs_gdr.utils.benchmark --test batch
+
+# 全部测试
+python3 -m sglang_3fs_gdr.utils.benchmark --test all</code></pre>
+</div>
+
+<div class="highlight-box green">
+<strong>总结：</strong> 本方案通过五层架构 (GDR核心 → 3FS桥接 → HiCache后端 → 通信层 → 工具) 实现了 SGLang 基于 3FS 的 GPUDirect RDMA 支持。核心创新在于扩展 3FS USRBIO 的 Iov 机制，将数据缓冲区从 CPU 共享内存替换为 GPU 设备内存，并通过 <code>ibv_reg_mr</code> 注册为 RDMA 可访问区域，实现 GPU↔3FS 存储的零拷贝传输。同时提供了完整的 GDR 环境检测、回退机制和性能基准测试工具。
+</div>
+
+</div>
+</body>
+</html>
